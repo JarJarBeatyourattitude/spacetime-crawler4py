@@ -21,6 +21,21 @@ def init(df, user_agent, fresh):
 
 def get_cache_server(config, restart):
     init_node = Node(
-        init, Types=[Register], dataframe=(config.host, config.port))
-    return init_node.start(
-        config.user_agent, restart or not os.path.exists(config.save_file))
+        init, Types=[Register], dataframe=(config.host, config.port),
+        threading=True)
+    try:
+        return init_node.start(
+            config.user_agent, restart or not os.path.exists(config.save_file))
+    except TimeoutError as exc:
+        raise RuntimeError(
+            f"Timed out connecting to the cache registration server at "
+            f"{config.host}:{config.port}. Make sure you are on the UCI campus "
+            f"network or connected to the UCI VPN, then try again. If you are "
+            f"already on VPN, the course cache server may be temporarily down."
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(
+            f"Could not connect to the cache registration server at "
+            f"{config.host}:{config.port}. Verify VPN/campus network access "
+            f"and try again."
+        ) from exc

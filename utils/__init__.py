@@ -1,7 +1,8 @@
 import os
 import logging
+import re
 from hashlib import sha256
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit, urldefrag
 
 def get_logger(name, filename=None):
     logger = logging.getLogger(name)
@@ -30,6 +31,24 @@ def get_urlhash(url):
         f"{parsed.query}/{parsed.fragment}".encode("utf-8")).hexdigest()
 
 def normalize(url):
-    if url.endswith("/"):
-        return url.rstrip("/")
-    return url
+    if not url:
+        return url
+
+    url, _ = urldefrag(url)
+    parsed = urlsplit(url)
+    scheme = parsed.scheme.lower()
+    hostname = parsed.hostname.lower() if parsed.hostname else ""
+    port = parsed.port
+    if (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
+        port = None
+
+    netloc = hostname
+    if port:
+        netloc = f"{netloc}:{port}"
+
+    path = parsed.path or "/"
+    path = re.sub(r"/{2,}", "/", path)
+    if path != "/" and path.endswith("/"):
+        path = path.rstrip("/")
+
+    return urlunsplit((scheme, netloc, path, parsed.query, ""))

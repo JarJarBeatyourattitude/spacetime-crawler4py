@@ -1,12 +1,27 @@
-from configparser import ConfigParser
 from argparse import ArgumentParser
+from configparser import ConfigParser
+import multiprocessing
+import sys
 
-from utils.server_registration import get_cache_server
-from utils.config import Config
-from crawler import Crawler
+
+def configure_multiprocessing():
+    # spacetime creates a local Process subclass that is not picklable under
+    # macOS's default "spawn" start method. Using "fork" matches the older
+    # course setup and avoids registration-time crashes.
+    if sys.platform != "darwin":
+        return
+
+    if multiprocessing.get_start_method(allow_none=True) is None:
+        multiprocessing.set_start_method("fork")
 
 
 def main(config_file, restart):
+    configure_multiprocessing()
+
+    from utils.server_registration import get_cache_server
+    from utils.config import Config
+    from crawler import Crawler
+
     cparser = ConfigParser()
     cparser.read(config_file)
     config = Config(cparser)

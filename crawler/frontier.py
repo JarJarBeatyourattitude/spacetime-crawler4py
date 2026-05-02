@@ -1,31 +1,33 @@
 import os
 import shelve
-
-from threading import Thread, RLock
-from queue import Queue, Empty
+from collections import deque
+from glob import glob
 
 from utils import get_logger, get_urlhash, normalize
 from scraper import is_valid
+from crawl_analytics import cleanup_analytics_files
 
 class Frontier(object):
     def __init__(self, config, restart):
         self.logger = get_logger("FRONTIER")
         self.config = config
-        self.to_be_downloaded = list()
-        
-        if not os.path.exists(self.config.save_file) and not restart:
+        self.to_be_downloaded = deque()
+
+        save_exists = self._save_exists()
+        if not save_exists and not restart:
             # Save file does not exist, but request to load save.
             self.logger.info(
                 f"Did not find save file {self.config.save_file}, "
                 f"starting from seed.")
-        elif os.path.exists(self.config.save_file) and restart:
+        elif save_exists and restart:
             # Save file does exists, but request to start from seed.
             self.logger.info(
                 f"Found save file {self.config.save_file}, deleting it.")
-            os.remove(self.config.save_file)
+            self._clear_shelve_files()
         # Load existing save file, or create one if it does not exist.
         self.save = shelve.open(self.config.save_file)
         if restart:
+            cleanup_analytics_files()
             for url in self.config.seed_urls:
                 self.add_url(url)
         else:
@@ -47,9 +49,16 @@ class Frontier(object):
             f"Found {tbd_count} urls to be downloaded from {total_count} "
             f"total urls discovered.")
 
+    def _save_exists(self):
+        return any(glob(f"{self.config.save_file}*"))
+
+    def _clear_shelve_files(self):
+        for path in glob(f"{self.config.save_file}*"):
+            os.remove(path)
+
     def get_tbd_url(self):
         try:
-            return self.to_be_downloaded.pop()
+            return self.to_be_downloaded.popleft()
         except IndexError:
             return None
 

@@ -108,3 +108,6 @@ venv.bak/
 
 *.full.py
 *.shelve
+crawl_analytics_store*
+crawl_report.json
+crawl_report.txt
